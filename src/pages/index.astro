@@ -1,0 +1,240 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AudioPlayer from '../components/AudioPlayer.astro';
+
+// Import all audio files dynamically
+const audioModules = import.meta.glob('../assets/audio/*.mp3', { eager: true });
+
+// Import all images dynamically
+const imageModules = import.meta.glob('../assets/images/*.{png,jpg,jpeg,svg}', { eager: true });
+
+// Convert image modules to array of image sources
+// Handle different possible module structures
+const images: string[] = [];
+Object.entries(imageModules).forEach(([path, module]: [string, any]) => {
+	let imageSrc: string | null = null;
+
+	// Debug: log the structure (remove in production)
+	// console.log('Image module for', path, ':', module);
+
+	// Try different ways to extract the image source
+	if (typeof module === 'string') {
+		imageSrc = module;
+	} else if (module?.default) {
+		const defaultVal = module.default;
+		if (typeof defaultVal === 'string') {
+			imageSrc = defaultVal;
+		} else if (defaultVal && typeof defaultVal === 'object') {
+			// Astro ImageMetadata object
+			imageSrc = defaultVal.src || defaultVal.fallback?.src;
+		}
+	} else if (module && typeof module === 'object') {
+		// Direct ImageMetadata object
+		imageSrc = module.src || module.fallback?.src;
+	}
+
+	if (imageSrc && typeof imageSrc === 'string' && imageSrc.length > 0) {
+		images.push(imageSrc);
+	}
+});
+
+// Helper function to get a random image based on audio filename (deterministic)
+function getRandomImageForAudio(fileName: string, images: string[]): string {
+	if (images.length === 0) return '/placeholder-image.svg';
+	// Use filename as seed for consistent random assignment
+	let hash = 0;
+	for (let i = 0; i < fileName.length; i++) {
+		const char = fileName.charCodeAt(i);
+		hash = ((hash << 5) - hash) + char;
+		hash = hash & hash; // Convert to 32-bit integer
+	}
+	const index = Math.abs(hash) % images.length;
+	return images[index];
+}
+
+// Create audio data array with labels and random images
+const audioData = Object.entries(audioModules).map(([path, module]) => {
+	const fileName = path.split('/').pop()?.replace('.mp3', '') || '';
+	// Convert filename to readable label (e.g., "siema-cinek-1" -> "Siema Cinek 1")
+	const label = fileName
+		.split('-')
+		.map(word => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(' ');
+
+	return {
+		src: (module as { default: string }).default,
+		label: label,
+		image: getRandomImageForAudio(fileName, images),
+		id: fileName,
+	};
+});
+---
+
+<Layout title="Audio Player">
+	<main class="container">
+		<div class="content">
+			<h1 class="title">Siema jestem Cinek</h1>
+			<h2 class="subtitle">On gada! 😱</h2>
+
+			<div class="players-grid">
+				{audioData.map((audio) => (
+					<div class="player-card">
+						<div class="image-container">
+							<img
+								class="audio-image"
+								src={audio.image}
+								alt={`${audio.label} cover`}
+								data-audio-id={audio.id}
+							/>
+						</div>
+						<AudioPlayer
+							audioSrc={audio.src}
+							label={audio.label}
+							audioId={audio.id}
+						/>
+					</div>
+				))}
+			</div>
+		</div>
+	</main>
+</Layout>
+
+<style>
+	.container {
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
+		background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.container::before {
+		content: '';
+		position: absolute;
+		top: -50%;
+		left: -50%;
+		width: 200%;
+		height: 200%;
+		background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+		animation: rotate 20s linear infinite;
+		pointer-events: none;
+	}
+
+	@keyframes rotate {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.content {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		max-width: 1200px;
+	}
+
+	.title {
+		text-align: center;
+		font-size: 3rem;
+		font-weight: 700;
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+		margin-bottom: 1rem;
+		text-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+	}
+
+	.subtitle {
+		text-align: center;
+		font-size: 1.5rem;
+		font-weight: 500;
+		color: rgba(255, 255, 255, 0.8);
+		margin-bottom: 3rem;
+	}
+
+	.players-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+		gap: 2rem;
+		width: 100%;
+	}
+
+	.player-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.5rem;
+		background: rgba(255, 255, 255, 0.05);
+		backdrop-filter: blur(10px);
+		border-radius: 24px;
+		padding: 2rem;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		box-shadow:
+			0 8px 32px rgba(0, 0, 0, 0.3),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		transition: transform 0.3s ease, box-shadow 0.3s ease;
+	}
+
+	.player-card:hover {
+		transform: translateY(-4px);
+		box-shadow:
+			0 12px 40px rgba(0, 0, 0, 0.4),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	}
+
+	.image-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+	}
+
+	.audio-image {
+		width: 100%;
+		max-width: 300px;
+		height: auto;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+		object-fit: cover;
+		aspect-ratio: 1;
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		opacity: 0.9;
+		transition: transform 0.3s ease;
+	}
+
+	.player-card:hover .audio-image {
+		transform: scale(1.02);
+	}
+
+	@media (max-width: 768px) {
+		.title {
+			font-size: 2rem;
+			margin-bottom: 0.5rem;
+		}
+
+		.subtitle {
+			font-size: 1.25rem;
+			margin-bottom: 2rem;
+		}
+
+		.players-grid {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+		}
+
+		.player-card {
+			padding: 1.5rem;
+		}
+
+		.audio-image {
+			max-width: 100%;
+		}
+	}
+</style>
