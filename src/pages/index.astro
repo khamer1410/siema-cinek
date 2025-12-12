@@ -38,17 +38,11 @@ Object.entries(imageModules).forEach(([path, module]: [string, any]) => {
 	}
 });
 
-// Helper function to get a random image based on audio filename (deterministic)
-function getRandomImageForAudio(fileName: string, images: string[]): string {
+// Helper function to get a random image (truly random on each page load)
+function getRandomImageForAudio(images: string[]): string {
 	if (images.length === 0) return '/placeholder-image.svg';
-	// Use filename as seed for consistent random assignment
-	let hash = 0;
-	for (let i = 0; i < fileName.length; i++) {
-		const char = fileName.charCodeAt(i);
-		hash = ((hash << 5) - hash) + char;
-		hash = hash & hash; // Convert to 32-bit integer
-	}
-	const index = Math.abs(hash) % images.length;
+	// Use Math.random() for truly random selection on each page refresh
+	const index = Math.floor(Math.random() * images.length);
 	return images[index];
 }
 
@@ -64,7 +58,7 @@ const audioData = Object.entries(audioModules).map(([path, module]) => {
 	return {
 		src: (module as { default: string }).default,
 		label: label,
-		image: getRandomImageForAudio(fileName, images),
+		image: getRandomImageForAudio(images),
 		id: fileName,
 	};
 });
